@@ -1140,6 +1140,7 @@ impl App {
                 &mut stdout,
                 &self.last_ascii,
                 render_cols as u16,
+                render_rows as u16,
                 fps_actual,
                 self,
             )?;
@@ -1458,6 +1459,7 @@ fn draw_screen(
     stdout: &mut io::Stdout,
     ascii: &str,
     render_cols: u16,
+    render_rows: u16,
     fps: f32,
     app: &App,
 ) -> Result<()> {
@@ -1480,16 +1482,21 @@ fn draw_screen(
     let preset = app.rec_config.preset_name().unwrap_or("custom");
     writeln!(
         stdout,
-        "\x1b[7m RUSTERCAM | {:5.1} fps | {} ({}){} \x1b[0m\x1b[K",
+        "\x1b[7m RUSTERCAM | {:5.1} fps | {}(W) x {}(H) | {} ({}){} \x1b[0m\x1b[K",
         fps,
+        render_cols,
+        render_rows,
         app.rec_config.color_mode.label(),
         preset,
         rec
     )?;
     writeln!(
         stdout,
-        " ↑/↓ Contrast {:3.1} | ←/→ Bright {:+4}\x1b[K",
-        app.contrast, app.brightness
+        " ↑/↓ Contrast {} {:3.1}  │  ←/→ Bright   {} {:+4}\x1b[K",
+        make_bar(app.contrast, 0.1, 3.0, 12),
+        app.contrast,
+        make_bar(app.brightness as f32, -100.0, 100.0, 12),
+        app.brightness
     )?;
     write!(
         stdout,
@@ -1499,6 +1506,16 @@ fn draw_screen(
     )?;
     stdout.flush()?;
     Ok(())
+}
+
+fn make_bar(value: f32, min: f32, max: f32, width: usize) -> String {
+    let ratio = ((value - min) / (max - min)).clamp(0.0, 1.0);
+    let filled = (ratio * width as f32).floor() as usize;
+    format!(
+        "{}{}",
+        "█".repeat(filled),
+        "░".repeat(width.saturating_sub(filled))
+    )
 }
 
 fn draw_overlay(stdout: &mut io::Stdout, lines: &[String]) -> Result<()> {
