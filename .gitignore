@@ -1,0 +1,7 @@
+/target/
+.DS_Store
+*.tcam
+capture/*
+!capture/.gitkeep
+recording/*
+!recording/.gitkeep
