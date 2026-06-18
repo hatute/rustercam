@@ -1,5 +1,7 @@
 # rustercam
 
+![rustercam terminal preview](assets/rustercam-preview.png)
+
 `rustercam` is a Rust port of [`terminalcam`](https://gitlab.com/here_forawhile/terminalcam), a real-time ASCII camera for the terminal by [`here_forawhile`](https://gitlab.com/here_forawhile).
 
 It captures your webcam, converts each frame into colored ASCII art, and renders it directly in the terminal. It also supports interactive recording, playback, and screenshots.
