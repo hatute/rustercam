@@ -17,7 +17,10 @@ use crate::{
     export::{ansi_to_html, render_frame_to_svg},
     frame::RenderFrame,
     recording::{RecordingConfig, TcamEncoder},
-    render::{build_lut, compute_render_size, render_frame, rotate_frame},
+    render::{
+        build_lut, compute_render_size, render_frame_with_stabilizer, rotate_frame,
+        RenderStabilizer,
+    },
     ui::{
         draw_overlay, draw_screen, help_text, settings_text, terminal_canvas_size, HudState,
         TerminalGuard,
@@ -41,6 +44,7 @@ pub struct App {
     record_path: Option<PathBuf>,
     rec_config: RecordingConfig,
     encoder: Option<TcamEncoder>,
+    render_stabilizer: RenderStabilizer,
     last_frame: RenderFrame,
     last_ascii: String,
 }
@@ -91,6 +95,7 @@ impl App {
             record_path: args.record,
             rec_config,
             encoder: None,
+            render_stabilizer: RenderStabilizer::default(),
             last_frame: RenderFrame::default(),
             last_ascii: String::new(),
         }
@@ -138,6 +143,7 @@ impl App {
                                 )?;
                                 camera = next;
                                 self.camera = next_camera;
+                                self.render_stabilizer.reset();
                                 ensure_camera_device(&mut self.devices, next_camera);
                             }
                         }
@@ -186,7 +192,7 @@ impl App {
                 frame.height,
                 self.char_aspect,
             );
-            let rendered = render_frame(
+            let rendered = render_frame_with_stabilizer(
                 &frame,
                 render_cols,
                 render_rows,
@@ -194,6 +200,7 @@ impl App {
                 self.contrast,
                 self.brightness,
                 self.rec_config.color_mode,
+                Some(&mut self.render_stabilizer),
             );
             self.last_frame = rendered.0;
             self.last_ascii = rendered.1;
@@ -249,6 +256,7 @@ impl App {
     fn rebuild_lut(&mut self) {
         let ramp = self.current_ramp();
         self.lut = build_lut(&ramp);
+        self.render_stabilizer.reset();
     }
 
     fn current_ramp(&self) -> String {
