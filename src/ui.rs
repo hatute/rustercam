@@ -19,6 +19,7 @@ pub struct HudState<'a> {
     pub brightness: i16,
     pub camera_status: &'a str,
     pub invert: bool,
+    pub flip: bool,
     pub rotation_degrees: u8,
 }
 
@@ -95,9 +96,10 @@ pub fn draw_screen(
     )?;
     write!(
         stdout,
-        " 1 invert:{}  2 rot:{}  3 rec  4 capture  5 preset  c camera  s settings  h help  q quit\x1b[K",
+        " 1 invert:{}  2 rot:{}  f flip:{}  3 rec  4 capture  5 preset  c camera  s settings  h help  q quit\x1b[K",
         if hud.invert { "on" } else { "off" },
-        hud.rotation_degrees
+        hud.rotation_degrees,
+        if hud.flip { "on" } else { "off" }
     )?;
     stdout.flush()?;
     Ok(())
@@ -141,6 +143,7 @@ pub fn help_text(platform: Platform) -> Vec<String> {
         "",
         "  1         Toggle invert",
         "  2         Cycle rotation",
+        "  f         Toggle horizontal flip",
         "  3         Start / stop recording",
         "  4         Capture screenshot",
         "  Shift-H   Capture HTML screenshot",

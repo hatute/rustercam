@@ -102,6 +102,22 @@ pub fn rotate_frame(frame: &Frame, rotation: u8) -> Frame {
     }
 }
 
+pub fn flip_frame_horizontal(frame: &Frame) -> Frame {
+    let mut out = vec![0u8; frame.data.len()];
+    for y in 0..frame.height {
+        for x in 0..frame.width {
+            let src = (y * frame.width + x) * 3;
+            let dst = (y * frame.width + (frame.width - 1 - x)) * 3;
+            out[dst..dst + 3].copy_from_slice(&frame.data[src..src + 3]);
+        }
+    }
+    Frame {
+        data: out,
+        width: frame.width,
+        height: frame.height,
+    }
+}
+
 pub fn render_frame_with_stabilizer(
     frame: &Frame,
     render_cols: usize,
@@ -284,4 +300,30 @@ pub fn dequantize_color(idx: u8) -> (u8, u8, u8) {
     let g = ((idx / 6) % 6) * 51;
     let r = (idx / 36) * 51;
     (r, g, b)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::flip_frame_horizontal;
+    use crate::frame::Frame;
+
+    #[test]
+    fn flip_frame_horizontal_mirrors_rgb_rows() {
+        let frame = Frame {
+            width: 3,
+            height: 2,
+            data: vec![
+                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+            ],
+        };
+
+        let flipped = flip_frame_horizontal(&frame);
+
+        assert_eq!(flipped.width, 3);
+        assert_eq!(flipped.height, 2);
+        assert_eq!(
+            flipped.data,
+            vec![7, 8, 9, 4, 5, 6, 1, 2, 3, 16, 17, 18, 13, 14, 15, 10, 11, 12,]
+        );
+    }
 }

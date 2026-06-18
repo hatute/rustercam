@@ -18,8 +18,8 @@ use crate::{
     frame::RenderFrame,
     recording::{RecordingConfig, TcamEncoder},
     render::{
-        build_lut, compute_render_size, render_frame_with_stabilizer, rotate_frame,
-        RenderStabilizer,
+        build_lut, compute_render_size, flip_frame_horizontal, render_frame_with_stabilizer,
+        rotate_frame, RenderStabilizer,
     },
     ui::{
         draw_overlay, draw_screen, help_text, settings_text, terminal_canvas_size, HudState,
@@ -35,6 +35,7 @@ pub struct App {
     contrast: f32,
     brightness: i16,
     invert: bool,
+    flip: bool,
     char_aspect: f32,
     cam_w: usize,
     cam_h: usize,
@@ -86,6 +87,7 @@ impl App {
             contrast: args.contrast,
             brightness: args.brightness,
             invert: args.invert,
+            flip: args.flip,
             char_aspect: args.char_aspect.unwrap_or(CHAR_ASPECT_FALLBACK),
             cam_w,
             cam_h,
@@ -129,6 +131,10 @@ impl App {
                             self.rebuild_lut();
                         }
                         KeyCode::Char('2') => self.rotation = (self.rotation + 1) % 4,
+                        KeyCode::Char('f') | KeyCode::Char('F') => {
+                            self.flip = !self.flip;
+                            self.render_stabilizer.reset();
+                        }
                         KeyCode::Char('3') => self.toggle_recording()?,
                         KeyCode::Char('4') => self.capture_svg()?,
                         KeyCode::Char('H') => self.capture_html()?,
@@ -184,6 +190,9 @@ impl App {
             if self.rotation != 0 {
                 frame = rotate_frame(&frame, self.rotation);
             }
+            if self.flip {
+                frame = flip_frame_horizontal(&frame);
+            }
             let (cols, rows) = terminal_canvas_size();
             let (render_cols, render_rows) = compute_render_size(
                 cols as usize,
@@ -232,6 +241,7 @@ impl App {
                 brightness: self.brightness,
                 camera_status: &camera_status,
                 invert: self.invert,
+                flip: self.flip,
                 rotation_degrees: self.rotation * 90,
             };
             draw_screen(
