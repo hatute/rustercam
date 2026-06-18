@@ -2,6 +2,7 @@
 /dist/
 .DS_Store
 *.tcam
+.rtk/
 capture/*
 !capture/.gitkeep
 recording/*
