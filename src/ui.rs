@@ -21,6 +21,7 @@ pub struct HudState<'a> {
     pub invert: bool,
     pub flip: bool,
     pub rotation_degrees: u8,
+    pub captured: bool,
 }
 
 pub fn terminal_canvas_size() -> (u16, u16) {
@@ -75,15 +76,20 @@ pub fn draw_screen(
         writeln!(stdout, "{}\x1b[K", " ".repeat(cols as usize))?;
     }
     let rec = if hud.recording {
-        "  \x1b[31mREC\x1b[0m"
+        "\x1b[37;41m  REC ●  \x1b[0m"
+    } else {
+        ""
+    };
+    let captured = if hud.captured {
+        "\x1b[30;47m CAPTURED! \x1b[0m"
     } else {
         ""
     };
     let preset = hud.preset;
     writeln!(
         stdout,
-        "\x1b[7m RUSTERCAM | {} | {:5.1} fps | {}(W) x {}(H) | {} ({}){} \x1b[0m\x1b[K",
-        backend, fps, render_cols, render_rows, hud.color_mode_label, preset, rec
+        "\x1b[7m RUSTERCAM | {} | {:5.1} fps | {}(W) x {}(H) | {} ({}) \x1b[0m{}{}\x1b[K",
+        backend, fps, render_cols, render_rows, hud.color_mode_label, preset, rec, captured
     )?;
     writeln!(
         stdout,
@@ -96,7 +102,7 @@ pub fn draw_screen(
     )?;
     write!(
         stdout,
-        " 1 invert:{}  2 rot:{}  f flip:{}  3 rec  4 capture  5 preset  c camera  s settings  h help  q quit\x1b[K",
+        " 1 invert:{}  2 rot:{}  f flip:{}  3 record  4 capture  5 preset  c camera  s settings  h help  q quit\x1b[K",
         if hud.invert { "on" } else { "off" },
         hud.rotation_degrees,
         if hud.flip { "on" } else { "off" }
@@ -145,7 +151,7 @@ pub fn help_text(platform: Platform) -> Vec<String> {
         "  2         Cycle rotation",
         "  f         Toggle horizontal flip",
         "  3         Start / stop recording",
-        "  4         Capture screenshot",
+        "  4         Capture SVG screenshot",
         "  Shift-H   Capture HTML screenshot",
         "  5         Cycle preset",
         "  c         Cycle camera device",
@@ -154,6 +160,8 @@ pub fn help_text(platform: Platform) -> Vec<String> {
         "  s         Settings",
         "  h         Close help",
         "  q         Quit",
+        "",
+        "  Startup: --invert, --flip, --rotate 0|1|2|3",
         "",
         &format!("  Platform: {platform:?}"),
     ]

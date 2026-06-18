@@ -27,6 +27,8 @@ use crate::{
     },
 };
 
+const CAPTURED_NOTICE_DURATION: Duration = Duration::from_millis(1200);
+
 pub struct App {
     platform: Platform,
     camera: u32,
@@ -114,6 +116,7 @@ impl App {
         let mut show_help = false;
         let mut show_settings = false;
         let mut preset_idx = 0usize;
+        let mut captured_notice_until: Option<Instant> = None;
 
         loop {
             while event::poll(Duration::from_millis(0))? {
@@ -136,8 +139,18 @@ impl App {
                             self.render_stabilizer.reset();
                         }
                         KeyCode::Char('3') => self.toggle_recording()?,
-                        KeyCode::Char('4') => self.capture_svg()?,
-                        KeyCode::Char('H') => self.capture_html()?,
+                        KeyCode::Char('4') => {
+                            if self.capture_svg()? {
+                                captured_notice_until =
+                                    Some(Instant::now() + CAPTURED_NOTICE_DURATION);
+                            }
+                        }
+                        KeyCode::Char('H') => {
+                            if self.capture_html()? {
+                                captured_notice_until =
+                                    Some(Instant::now() + CAPTURED_NOTICE_DURATION);
+                            }
+                        }
                         KeyCode::Char('c') | KeyCode::Char('C') => {
                             if let Some(next_camera) = self.next_camera_id() {
                                 let next = Capture::start(
@@ -243,6 +256,7 @@ impl App {
                 invert: self.invert,
                 flip: self.flip,
                 rotation_degrees: self.rotation * 90,
+                captured: captured_notice_until.is_some_and(|until| Instant::now() < until),
             };
             draw_screen(
                 &mut stdout,
@@ -319,9 +333,9 @@ impl App {
         format!("{name} ({}/{total})", current_index + 1)
     }
 
-    fn capture_html(&self) -> Result<()> {
+    fn capture_html(&self) -> Result<bool> {
         if self.last_ascii.is_empty() {
-            return Ok(());
+            return Ok(false);
         }
         let dir = Path::new("capture");
         fs::create_dir_all(dir).context("create capture directory")?;
@@ -334,12 +348,12 @@ impl App {
             "<!doctype html><html><head><meta charset=\"utf-8\"><title>rustercam capture</title><style>body{{background:#101014;margin:0;padding:20px}}pre{{font:10px/1 monospace;color:#ddd}}</style></head><body><pre>{body}</pre></body></html>"
         );
         fs::write(name, html)?;
-        Ok(())
+        Ok(true)
     }
 
-    fn capture_svg(&self) -> Result<()> {
+    fn capture_svg(&self) -> Result<bool> {
         if self.last_frame.chars.is_empty() {
-            return Ok(());
+            return Ok(false);
         }
         let dir = Path::new("capture");
         fs::create_dir_all(dir).context("create capture directory")?;
@@ -349,6 +363,6 @@ impl App {
         ));
         let svg = render_frame_to_svg(&self.last_frame, self.char_aspect);
         fs::write(name, svg)?;
-        Ok(())
+        Ok(true)
     }
 }
