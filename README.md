@@ -1,5 +1,7 @@
 # rustercam
 
+![rustercam terminal preview](assets/rustercam-preview.png)
+
 `rustercam` is a Rust port of [`terminalcam`](https://gitlab.com/here_forawhile/terminalcam), a real-time ASCII camera for the terminal by [`here_forawhile`](https://gitlab.com/here_forawhile).
 
 It captures your webcam, converts each frame into colored ASCII art, and renders it directly in the terminal. It also supports interactive recording, playback, and screenshots.
@@ -8,7 +10,7 @@ It captures your webcam, converts each frame into colored ASCII art, and renders
 
 - Live webcam to ASCII rendering in the terminal
 - Truecolor, 256-color, 16-color, grayscale, green, and red display modes
-- Interactive controls for contrast, brightness, rotation, invert, presets, recording, and screenshots
+- Interactive controls for contrast, brightness, rotation, invert, flip, presets, recording, and screenshots
 - `.tcam` recording and playback, compatible with the v1/v2 format used by `terminalcam`
 - SVG screenshot export, with the older HTML export kept available
 - Native macOS/Linux webcam capture with `ffmpeg` fallback
@@ -102,6 +104,9 @@ cargo run --release -- --camera 1
 # Invert brightness for light terminal backgrounds
 cargo run --release -- --invert
 
+# Mirror the camera horizontally
+cargo run --release -- --flip
+
 # Record while viewing
 cargo run --release -- --record recording/session.tcam
 
@@ -118,6 +123,7 @@ cargo run --release -- --play recording/session.tcam
 --brightness <INT>           Brightness offset
 --ramp long|short            ASCII character ramp
 --invert                     Invert brightness
+--flip                       Mirror camera horizontally
 --char-aspect <FLOAT>        Terminal character width/height ratio
 --camera <N>                 Camera device index
 --rotate 0|1|2|3             Rotate in 90 degree steps
@@ -132,6 +138,7 @@ cargo run --release -- --play recording/session.tcam
 |---|---|
 | `1` | Toggle invert |
 | `2` | Rotate 0/90/180/270 |
+| `f` | Toggle horizontal flip |
 | `3` | Start/stop recording |
 | `4` | Capture screenshot |
 | `Shift-H` | Capture HTML screenshot |
@@ -173,7 +180,7 @@ The codebase is split by responsibility:
 | `src/capture.rs` | Native, `ffmpeg`, and Termux capture backends plus camera enumeration |
 | `src/cli.rs` | Command-line arguments and shared option enums |
 | `src/frame.rs` | Raw and rendered frame data structures |
-| `src/render.rs` | Frame rotation, ASCII rendering, and color conversion |
+| `src/render.rs` | Frame rotation/flip, ASCII rendering, and color conversion |
 | `src/recording.rs` | `.tcam` encoder/decoder and recording presets |
 | `src/export.rs` | HTML and SVG screenshot export helpers |
 | `src/ui.rs` | Terminal guard, HUD, help, and settings overlays |

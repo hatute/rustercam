@@ -23,10 +23,10 @@ pub fn ansi_to_html(input: &str) -> String {
     out
 }
 
-pub fn render_frame_to_svg(frame: &RenderFrame) -> String {
+pub fn render_frame_to_svg(frame: &RenderFrame, char_aspect: f32) -> String {
     let cell_w = 8usize;
-    let cell_h = 12usize;
-    let baseline = 10usize;
+    let cell_h = ((cell_w as f32 / char_aspect.max(0.1)).round() as usize).max(1);
+    let baseline = (cell_h as f32 * 0.83).round() as usize;
     let width_chars = frame
         .chars
         .iter()
@@ -139,4 +139,23 @@ fn escape_xml(input: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::render_frame_to_svg;
+    use crate::frame::RenderFrame;
+
+    #[test]
+    fn svg_uses_terminal_character_aspect_for_height() {
+        let frame = RenderFrame {
+            chars: vec!["ab".to_string(), "cd".to_string()],
+            colors: None,
+        };
+
+        let svg = render_frame_to_svg(&frame, 0.45);
+
+        assert!(svg.contains(r#"width="16" height="36""#));
+        assert!(svg.contains(r#"viewBox="0 0 16 36""#));
+    }
 }

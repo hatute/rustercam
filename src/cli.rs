@@ -102,6 +102,8 @@ pub struct Args {
     #[arg(long)]
     pub invert: bool,
     #[arg(long)]
+    pub flip: bool,
+    #[arg(long)]
     pub char_aspect: Option<f32>,
     #[arg(long)]
     pub camera: Option<u32>,
