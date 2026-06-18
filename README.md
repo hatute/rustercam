@@ -11,7 +11,9 @@ It captures your webcam, converts each frame into colored ASCII art, and renders
 - Interactive controls for contrast, brightness, rotation, invert, presets, recording, and screenshots
 - `.tcam` recording and playback, compatible with the v1/v2 format used by `terminalcam`
 - SVG screenshot export, with the older HTML export kept available
-- macOS, Linux, and Termux capture backends using existing platform tools
+- Native macOS/Linux webcam capture with `ffmpeg` fallback
+- Runtime backend indicator and camera device cycling
+- Termux capture using existing platform tools
 
 ## Status
 
@@ -22,10 +24,10 @@ This is an early Rust port. The core live preview, controls, screenshots, record
 ### macOS
 
 - Rust toolchain
-- `ffmpeg`
 - Camera permission for your terminal app
+- Optional: `ffmpeg` fallback if native capture fails
 
-Install `ffmpeg` with Homebrew:
+Install optional `ffmpeg` fallback with Homebrew:
 
 ```bash
 brew install ffmpeg
@@ -34,10 +36,10 @@ brew install ffmpeg
 ### Linux
 
 - Rust toolchain
-- `ffmpeg`
 - A V4L2 webcam, usually `/dev/video0`
+- Optional: `ffmpeg` fallback if native capture fails
 
-Example install:
+Example optional fallback install:
 
 ```bash
 sudo apt install ffmpeg
@@ -76,6 +78,12 @@ Or run the built binary:
 ./target/release/rustercam
 ```
 
+Prebuilt release archives, when available, are attached to GitHub Releases. The current packaging script builds a macOS archive for the local machine:
+
+```bash
+scripts/package-release.sh v0.1.0
+```
+
 ## Usage
 
 ```bash
@@ -87,6 +95,9 @@ cargo run --release -- --no-color
 
 # Lower resolution, useful for slower terminals
 cargo run --release -- --resolution low
+
+# Start with a specific camera device index
+cargo run --release -- --camera 1
 
 # Invert brightness for light terminal backgrounds
 cargo run --release -- --invert
@@ -125,11 +136,18 @@ cargo run --release -- --play recording/session.tcam
 | `4` | Capture screenshot |
 | `Shift-H` | Capture HTML screenshot |
 | `5` | Cycle preset |
+| `c` | Cycle camera device |
 | `↑` / `↓` | Adjust contrast |
 | `←` / `→` | Adjust brightness |
 | `s` | Settings |
 | `h` | Help |
 | `q` | Quit |
+
+The top status line shows the active capture backend, for example `nokhwa`,
+`ffmpeg`, or `termux`. On macOS and Linux, `rustercam` tries the native
+`nokhwa` backend first and only starts `ffmpeg` if native capture cannot be
+opened. The camera status on the second line shows the current camera name and
+its 1-based position among detected devices, such as `(1/2)`.
 
 ## Output Files
 
@@ -143,6 +161,23 @@ cargo run --release -- --play recording/session.tcam
 `rustercam` uses the `.tcam` recording format from `terminalcam`.
 
 The current implementation can read v1/v2 recordings and writes v2-style recordings with keyframes, deltas, color quantization, optional derived characters, timestamp deltas, and zlib compression.
+
+## Project Layout
+
+The codebase is split by responsibility:
+
+| Path | Purpose |
+|---|---|
+| `src/main.rs` | CLI entry point and live/playback dispatch |
+| `src/app.rs` | Main application loop and interactive state |
+| `src/capture.rs` | Native, `ffmpeg`, and Termux capture backends plus camera enumeration |
+| `src/cli.rs` | Command-line arguments and shared option enums |
+| `src/frame.rs` | Raw and rendered frame data structures |
+| `src/render.rs` | Frame rotation, ASCII rendering, and color conversion |
+| `src/recording.rs` | `.tcam` encoder/decoder and recording presets |
+| `src/export.rs` | HTML and SVG screenshot export helpers |
+| `src/ui.rs` | Terminal guard, HUD, help, and settings overlays |
+| `src/playback.rs` | `.tcam` playback loop |
 
 ## Acknowledgements
 
