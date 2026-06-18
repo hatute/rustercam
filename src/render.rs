@@ -3,6 +3,49 @@ use crate::{
     frame::{Frame, RenderFrame},
 };
 
+const CHAR_STABILITY_THRESHOLD: u8 = 5;
+
+#[derive(Default)]
+pub struct RenderStabilizer {
+    width: usize,
+    height: usize,
+    grays: Vec<u8>,
+    chars: Vec<char>,
+}
+
+impl RenderStabilizer {
+    pub fn reset(&mut self) {
+        self.width = 0;
+        self.height = 0;
+        self.grays.clear();
+        self.chars.clear();
+    }
+
+    fn prepare(&mut self, width: usize, height: usize) {
+        if self.width != width || self.height != height {
+            self.width = width;
+            self.height = height;
+            self.grays = vec![0; width * height];
+            self.chars = vec![' '; width * height];
+        }
+    }
+
+    fn stabilize_char(&mut self, x: usize, y: usize, gray: u8, ch: char) -> char {
+        let idx = y * self.width + x;
+        let prev_gray = self.grays[idx];
+        let prev_ch = self.chars[idx];
+        let stable =
+            prev_ch != ' ' && prev_ch != ch && gray.abs_diff(prev_gray) <= CHAR_STABILITY_THRESHOLD;
+        if stable {
+            prev_ch
+        } else {
+            self.grays[idx] = gray;
+            self.chars[idx] = ch;
+            ch
+        }
+    }
+}
+
 pub fn build_lut(ramp: &str) -> Vec<char> {
     let chars: Vec<char> = ramp.chars().collect();
     let n = chars.len();
@@ -59,7 +102,7 @@ pub fn rotate_frame(frame: &Frame, rotation: u8) -> Frame {
     }
 }
 
-pub fn render_frame(
+pub fn render_frame_with_stabilizer(
     frame: &Frame,
     render_cols: usize,
     render_rows: usize,
@@ -67,7 +110,12 @@ pub fn render_frame(
     contrast: f32,
     brightness: i16,
     color_mode: ColorMode,
+    mut stabilizer: Option<&mut RenderStabilizer>,
 ) -> (RenderFrame, String) {
+    if let Some(stabilizer) = stabilizer.as_deref_mut() {
+        stabilizer.prepare(render_cols, render_rows);
+    }
+
     let mut chars = Vec::with_capacity(render_rows);
     let mut colors = if color_mode.is_color() {
         Some(Vec::with_capacity(render_rows))
@@ -76,18 +124,20 @@ pub fn render_frame(
     };
     let mut ascii = String::new();
     for y in 0..render_rows {
-        let sy = y * (frame.height - 1) / render_rows.saturating_sub(1).max(1);
         let mut row = String::with_capacity(render_cols);
         let mut color_row = Vec::with_capacity(render_cols);
         for x in 0..render_cols {
-            let sx = x * (frame.width - 1) / render_cols.saturating_sub(1).max(1);
-            let off = (sy * frame.width + sx) * 3;
-            let (mut r, mut g, mut b) = (frame.data[off], frame.data[off + 1], frame.data[off + 2]);
+            let (mut r, mut g, mut b) = sample_cell_rgb(frame, x, y, render_cols, render_rows);
             r = adjust(r, contrast, brightness);
             g = adjust(g, contrast, brightness);
             b = adjust(b, contrast, brightness);
-            let gray = (0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32) as usize;
-            let ch = lut[gray.min(255)];
+            let gray = (0.299 * r as f32 + 0.587 * g as f32 + 0.114 * b as f32) as u8;
+            let raw_ch = lut[gray as usize];
+            let ch = if let Some(stabilizer) = stabilizer.as_deref_mut() {
+                stabilizer.stabilize_char(x, y, gray, raw_ch)
+            } else {
+                raw_ch
+            };
             row.push(ch);
             if color_mode.is_color() {
                 let (er, eg, eb) = effective_rgb(r, g, b, color_mode);
@@ -108,6 +158,53 @@ pub fn render_frame(
         }
     }
     (RenderFrame { chars, colors }, ascii)
+}
+
+fn sample_cell_rgb(
+    frame: &Frame,
+    cell_x: usize,
+    cell_y: usize,
+    render_cols: usize,
+    render_rows: usize,
+) -> (u8, u8, u8) {
+    let x0 = cell_x * frame.width / render_cols;
+    let x1 = ((cell_x + 1) * frame.width / render_cols).max(x0 + 1);
+    let y0 = cell_y * frame.height / render_rows;
+    let y1 = ((cell_y + 1) * frame.height / render_rows).max(y0 + 1);
+    let x1 = x1.min(frame.width);
+    let y1 = y1.min(frame.height);
+
+    let xs = sample_positions(x0, x1);
+    let ys = sample_positions(y0, y1);
+    let mut r_sum = 0u32;
+    let mut g_sum = 0u32;
+    let mut b_sum = 0u32;
+    let mut samples = 0u32;
+
+    for sy in ys {
+        for sx in xs {
+            let off = (sy * frame.width + sx) * 3;
+            r_sum += frame.data[off] as u32;
+            g_sum += frame.data[off + 1] as u32;
+            b_sum += frame.data[off + 2] as u32;
+            samples += 1;
+        }
+    }
+
+    (
+        (r_sum / samples) as u8,
+        (g_sum / samples) as u8,
+        (b_sum / samples) as u8,
+    )
+}
+
+fn sample_positions(start: usize, end: usize) -> [usize; 3] {
+    let span = end.saturating_sub(start).max(1);
+    [
+        start + span / 4,
+        start + span / 2,
+        start + (span * 3 / 4).min(span - 1),
+    ]
 }
 
 fn adjust(v: u8, contrast: f32, brightness: i16) -> u8 {
