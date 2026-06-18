@@ -347,7 +347,7 @@ impl App {
             "capture_{}.svg",
             rand::thread_rng().gen_range(100000..=999999)
         ));
-        let svg = render_frame_to_svg(&self.last_frame);
+        let svg = render_frame_to_svg(&self.last_frame, self.char_aspect);
         fs::write(name, svg)?;
         Ok(())
     }
