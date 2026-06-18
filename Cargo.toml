@@ -14,3 +14,6 @@ crossterm = "0.27"
 flate2 = "1.0"
 rand = "0.8"
 terminal_size = "0.3"
+
+[target.'cfg(any(target_os = "macos", target_os = "linux"))'.dependencies]
+nokhwa = { version = "0.10.11", default-features = false, features = ["input-native", "decoding"] }
